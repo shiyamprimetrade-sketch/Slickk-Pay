@@ -27,6 +27,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .core import taka_to_poisha, display_amount, DomainError
 from .contracts import parse_provider_form, InvalidProviderForm, financial_capabilities, merchant_order_signature_valid
+from .ops.api import OpsPreviewConfig, create_ops_router
 
 
 class Base(DeclarativeBase):
@@ -497,6 +498,8 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
             raise HTTPException(status_code=404)
         return "<!doctype html><html><head><meta charset='utf-8'><title>Slickk Pay</title></head><body><h1>Payment status pending verification</h1><p>Return to the merchant to check your order. Do not pay again until verified.</p></body></html>"
 
+    api.include_router(create_ops_router(OpsPreviewConfig.from_env(
+        environment=cfg.environment, merchant_api_key=cfg.api_key)))
     return api
 
 

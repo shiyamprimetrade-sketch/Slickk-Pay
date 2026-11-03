@@ -110,3 +110,9 @@ Gateway password-variable aliases, strict sandbox/live mode checks and optional 
 - Enabled production requires server-authenticated HMAC order details. See `docs/FINANCIAL_CONTRACT_V09.md`.
 - Render staging keeps all money movement disabled and targets the reviewed feature branch.
 - No leaked credentials or proprietary third-party source code are incorporated.
+
+## v1.0 — Merchant operations evidence and staging previews
+
+An independent non-settling operations toolkit now lives in `app/ops/`: merchant invoice pricing, exact BDT gateway/bank reconciliation, balanced shadow journal, risk assessment, manual dispute casework, HMAC notification signatures with replay protection, bounded outbox retries, and readiness evidence reports.
+
+`SLICKK_OPS_PREVIEW_ENABLED` defaults to `false` and fails startup if enabled in production. All staging-only previews require merchant server authentication; no real gateway calls, bank transfers, loans, stored-value issuance or refunds are performed. Unverified statements and regulatory assertions never become verified facts through this API. See [operations documentation](docs/OPERATIONS_V10.md). Run `python -m unittest discover -s tests -v` to verify.
