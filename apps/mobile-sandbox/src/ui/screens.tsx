@@ -87,7 +87,7 @@ export function QuoteScreen({snapshot,locale,back,controller,refresh,operation}:
  const firstMerchant=snapshot.merchants.find(x=>x.active);
  const doQuote=()=>{
   try{
-   const target={recipientId:operation==="transfer"?"sim_cust_0002":null,
+   const target={recipientId:operation==="transfer"?("sim_cust_0002" as const):null,
     agentId:operation==="cash_in"||operation==="cash_out"?(firstAgent?.id??null):null,
     merchantId:operation==="merchant_payment"?(firstMerchant?.id??null):null};
    const draft=controller.newDraft({operation,amountText:amount,note,...target});

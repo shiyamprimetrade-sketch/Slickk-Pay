@@ -82,6 +82,7 @@ export default function App(){
  else if(screen==="agents"||screen==="agent_detail")content=<AgentsScreen {...shared}/>;
  else if(screen==="transfer_quote")content=<QuoteScreen {...shared} operation="transfer"/>;
  else if(screen==="cash_quote")content=<QuoteScreen {...shared} operation="cash_out"/>;
+ else if(screen==="cash_in_quote"&&persona==="agent")content=<AgentCashSandboxScreen snapshot={state.snapshot} locale={locale} back={back}/>;
  else if(screen==="cash_in_quote")content=<QuoteScreen {...shared} operation="cash_in"/>;
  else if(screen==="merchant_quote")content=<QuoteScreen {...shared} operation="merchant_payment"/>;
  else if(screen==="notifications")content=<NoticesScreen {...shared}/>;
@@ -89,7 +90,6 @@ export default function App(){
  else if(screen==="security"||screen==="privacy")content=<LabSecurityScreen snapshot={state.snapshot} locale={locale} back={back} onLock={()=>controller.dispatch({kind:"lock"})}/>;
  else if(screen==="settings")content=<SettingsScreen {...shared}/>;
  else if(screen==="receipt")content=<SampleReceiptScreen snapshot={state.snapshot} locale={locale} back={back}/>;
- else if(screen==="cash_in_quote"&&persona==="agent")content=<AgentCashSandboxScreen snapshot={state.snapshot} locale={locale} back={back}/>;
  else if(screen==="agent_dashboard")content=<AgentDashboardScreen {...shared}/>;
  else if(screen==="merchant_dashboard")content=<MerchantScreen {...shared}/>;
  else if(screen==="qr_preview")content=<QrScreen {...shared}/>;

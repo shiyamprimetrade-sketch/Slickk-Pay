@@ -13,8 +13,8 @@ import {AppHeader,MobileScroll,LabBanner,LabButton,WarningNote,ValueLine} from "
 export function LabSecurityScreen({snapshot,locale,back,onLock}:{snapshot:AppSnapshot;locale:Locale;back:()=>void;onLock:()=>void}){
  const [hidden,setHidden]=useState(true);
  const report=useMemo(()=>auditMobileSnapshot(snapshot),[snapshot]);
- const policy=securityChecklist(startDemoSession(snapshot.actor.role,snapshot.actor.id,Date.now()),
-   {appForeground:true,screenProtected:false,hasTrustedLocalClock:false,network:"offline",securityNoticeAcknowledged:true},Date.now());
+ const policy=securityChecklist({appForeground:true,screenProtected:false,hasTrustedLocalClock:false,network:"offline",securityNoticeAcknowledged:true},
+   startDemoSession(snapshot.actor.role,snapshot.actor.id,Date.now()),Date.now());
  return <><AppHeader title={t(locale,"security")} back={back}/><MobileScroll>
   <LabBanner locale={locale}/>
   <View style={styles.card}>
