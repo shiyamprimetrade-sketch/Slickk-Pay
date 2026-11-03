@@ -20,7 +20,8 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import create_engine, String, Integer, Text, UniqueConstraint, select
+from sqlalchemy import create_engine, String, Integer, Text, select
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.exc import IntegrityError
 
@@ -29,6 +30,23 @@ from .core import taka_to_poisha, display_amount, DomainError
 
 class Base(DeclarativeBase):
     pass
+
+
+def _database_url(raw: str) -> URL:
+    """Accept Render's standard PostgreSQL connectionString without logging secrets.
+
+    SQLAlchemy 2 needs an explicit psycopg driver for Render's `postgresql://` URL.
+    The URL object is passed to the engine directly, avoiding masked-password bugs.
+    """
+    if raw.startswith("postgres://"):
+        raw = "postgresql://" + raw[len("postgres://"):]
+    try:
+        parsed = make_url(raw)
+    except Exception as exc:
+        raise ValueError("Invalid DATABASE_URL") from exc
+    if parsed.drivername == "postgresql":
+        return parsed.set(drivername="postgresql+psycopg")
+    return parsed
 
 
 class Checkout(Base):
@@ -81,8 +99,11 @@ class Config:
             raise ValueError("Public base URL must be HTTPS")
         if self.gateway_live and (not self.enabled or self.environment != "production" or not self.regulatory_confirmation):
             raise ValueError("Live gateway requires enabled production mode and explicit regulatory signoff")
-        if self.environment == "production" and self.enabled and not self.database_url.startswith("postgresql+psycopg://"):
-            raise ValueError("Production checkouts require persistent PostgreSQL")
+        if self.environment == "production" and self.enabled:
+            if not self.regulatory_confirmation:
+                raise ValueError("Production checkouts require explicit regulatory signoff")
+            if _database_url(self.database_url).drivername != "postgresql+psycopg":
+                raise ValueError("Production checkouts require persistent PostgreSQL")
         if self.enabled and (len(self.api_key) < 32 or "REPLACE" in self.api_key.upper() or not self.gateway_store_id or not self.gateway_store_password or "REPLACE" in self.gateway_store_id.upper() or "REPLACE" in self.gateway_store_password.upper()):
             raise ValueError("Enabled checkouts require merchant API key (32+ characters) and gateway credentials")
         if self.environment == "production" and self.enabled and parsed.scheme != "https":
@@ -128,7 +149,10 @@ def _canonical_fingerprint(body: CheckoutCreate, minor: int) -> str:
 
 def _gateway_url_valid(url: str, host: str) -> bool:
     parsed = urlparse(url)
-    return parsed.scheme == "https" and parsed.hostname == host and not parsed.username and not parsed.password
+    return (parsed.scheme == "https" and parsed.hostname == host
+            and not parsed.username and not parsed.password
+            and parsed.port in (None, 443) and not parsed.fragment
+            and parsed.path.startswith("/gwprocess/"))
 
 
 def _view(row: Checkout) -> dict:
@@ -145,10 +169,10 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
     cfg = settings or Config.from_env()
     cfg.validate()
     # Fail closed for production at startup, rather than generating an ephemeral database.
-    engine = create_engine(cfg.database_url, pool_pre_ping=True)
+    engine = create_engine(_database_url(cfg.database_url), pool_pre_ping=True)
     Base.metadata.create_all(engine)
     Session = sessionmaker(engine, expire_on_commit=False)
-    api = FastAPI(title="Slickk Pay Hosted Checkout", version="0.2.0", docs_url=None, redoc_url=None,
+    api = FastAPI(title="Slickk Pay Hosted Checkout", version="0.3.0", docs_url=None, redoc_url=None,
                   description="Merchant checkout through licensed gateway; no wallet, remittance or loan issuance")
 
     @api.middleware("http")
@@ -171,7 +195,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
 
     @api.get("/")
     def root():
-        return {"service": "Slickk Pay Checkout", "version": "0.2.0", "wallets": "disabled", "loans": "disabled",
+        return {"service": "Slickk Pay Checkout", "version": "0.3.0", "wallets": "disabled", "loans": "disabled",
                 "enabled": cfg.enabled, "gateway": "live" if cfg.gateway_live else "sandbox"}
 
     @api.get("/healthz")

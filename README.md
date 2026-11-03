@@ -86,3 +86,7 @@ Regulatory applicability must be validated with qualified Bangladeshi legal/regu
 - Tests: `python -m unittest discover -s tests -v`.
 
 **Deployment is not the same as regulatory approval or a live transaction.** Live checkout is blocked until the actual licensed entity/merchant agreement, provider credentials, persistent PostgreSQL, HTTPS and operational reviews have been supplied and verified. User financial data and real loans require separate safeguards and authorization. Never paste API keys, NID scans or private authorisation documents into public GitHub.
+
+## v0.3 — Render staging blueprint (not yet deployed)
+
+The Render Blueprint [`render.yaml`](render.yaml) defines **disabled-by-default staging only** with a free staging PostgreSQL instance. See [`docs/RENDER_STAGING_DEPLOYMENT.md`](docs/RENDER_STAGING_DEPLOYMENT.md) for deployment steps, key rotation instructions, and go/no-go checks. The app accepts Render's default `postgresql://` database URL using the `psycopg` SQLAlchemy dialect. The local-only demo is **never** selected by the deployment Dockerfile. Run `python -m unittest discover -s tests -v` before promoting a build. No provider contracts, approvals, or real transactions are established by running this software.
