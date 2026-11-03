@@ -20,7 +20,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import create_engine, String, Integer, Text, select
+from sqlalchemy import create_engine, String, Integer, Text, DateTime, ForeignKey, Index, select, func
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.exc import IntegrityError
@@ -87,6 +87,32 @@ class Checkout(Base):
     val_id: Mapped[str | None] = mapped_column(String(120), unique=True)
     bank_tran_id: Mapped[str | None] = mapped_column(String(120), unique=True)
     failure_code: Mapped[str | None] = mapped_column(String(60))
+
+
+class IPNSecurityEvent(Base):
+    """Minimal durable metadata for blocked IPN attempts, never raw payload/PII."""
+    __tablename__ = "merchant_checkout_ipn_security_events"
+    event_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    checkout_id: Mapped[str] = mapped_column(String(32), ForeignKey("merchant_checkouts.id"), nullable=False)
+    existing_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason: Mapped[str] = mapped_column(String(48), nullable=False)
+    status_hint: Mapped[str] = mapped_column(String(16), nullable=False)
+    val_id_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    recorded_at: Mapped[object] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    __table_args__ = (Index("idx_slickk_ipn_security_checkout_time", "checkout_id", "recorded_at"),)
+
+
+_FINAL_STATES = frozenset({"paid", "risk_review", "failed", "cancelled", "refunded", "disputed"})
+
+
+def _audit_blocked_ipn(db, row: Checkout, *, status: str, val_id: str, reason: str) -> None:
+    """Persist minimal evidence while never storing raw provider IDs or body fields."""
+    db.add(IPNSecurityEvent(
+        event_id=uuid4().hex, checkout_id=row.id, existing_state=row.state,
+        reason=reason,
+        status_hint=status if status in ("VALID", "VALIDATED", "FAILED", "CANCELLED") else "OTHER",
+        val_id_digest=hashlib.sha256(val_id.encode("utf-8")).hexdigest() if val_id else None,
+    ))
 
 
 @dataclass(frozen=True)
@@ -235,7 +261,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
     engine = create_engine(_database_url(cfg.database_url), pool_pre_ping=True)
     Base.metadata.create_all(engine)
     Session = sessionmaker(engine, expire_on_commit=False)
-    api = FastAPI(title="Slickk Pay Hosted Checkout", version="0.5.0", docs_url=None, redoc_url=None,
+    api = FastAPI(title="Slickk Pay Hosted Checkout", version="0.8.0", docs_url=None, redoc_url=None,
                   description="Merchant checkout through licensed gateway; no wallet, remittance or loan issuance")
 
     @api.middleware("http")
@@ -258,7 +284,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
 
     @api.get("/")
     def root():
-        return {"service": "Slickk Pay Checkout", "version": "0.5.0", "wallets": "disabled", "loans": "disabled",
+        return {"service": "Slickk Pay Checkout", "version": "0.8.0", "wallets": "disabled", "loans": "disabled",
                 "enabled": cfg.enabled, "gateway": "live" if cfg.gateway_live else "sandbox"}
 
     @api.get("/healthz")
@@ -357,22 +383,32 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
             raise HTTPException(status_code=400, detail="Malformed IPN")
         tran_id = fields.get("tran_id", "")
         val_id = fields.get("val_id", "")
-        # Callback body is UNTRUSTED. Do not update the order for failed/cancelled
-        # unauthenticated messages; verify SUCCESS via independent provider lookup.
-        if fields.get("status") not in ("VALID", "VALIDATED") or not tran_id or not val_id:
+        # Callback body is untrusted: failure/cancellation cannot be asserted by a
+        # browser redirect or unsigned gateway POST. Only validation can mark paid.
+        if not tran_id:
             return {"accepted": True, "verified": False}
         if len(tran_id) > 30 or len(val_id) > 50:
             raise HTTPException(status_code=400, detail="Invalid identifiers")
-        with Session() as db:
+        status = fields.get("status", "")
+        with Session.begin() as db:
             row = db.get(Checkout, tran_id)
             if row is None:
                 return {"accepted": True, "verified": False}
-            if row.state in ("paid", "risk_review"):
-                # A duplicate IPN is acknowledged as verified only if its provider
-                # reference matches the one already independently validated.
-                if not row.val_id or not hmac.compare_digest(row.val_id, val_id):
-                    return {"accepted": True, "verified": False}
-                return {"accepted": True, "verified": True, "status": row.state}
+            if row.state in _FINAL_STATES:
+                # Terminal state cannot be resurrected. A verified repeat IPN is
+                # acknowledged only for the exact stored provider reference.
+                prior_reference = (row.state in ("paid", "risk_review")
+                                   and status in ("VALID", "VALIDATED")
+                                   and bool(row.val_id) and bool(val_id)
+                                   and hmac.compare_digest(row.val_id, val_id))
+                if prior_reference:
+                    return {"accepted": True, "verified": True, "status": row.state}
+                _audit_blocked_ipn(db, row, status=status, val_id=val_id,
+                                   reason="terminal_state_blocked" if row.state in ("failed", "cancelled", "refunded", "disputed")
+                                          else "terminal_reference_or_status_mismatch")
+                return {"accepted": True, "verified": False}
+            if status not in ("VALID", "VALIDATED") or not val_id:
+                return {"accepted": True, "verified": False}
             expected_amount = row.amount_poisha
         try:
             with client_factory() as client:
@@ -405,10 +441,13 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
         try:
             with Session.begin() as db:
                 row = db.get(Checkout, tran_id, with_for_update=True)
-                if row.state in ("paid", "risk_review"):
-                    if row.val_id != val_id or row.bank_tran_id != bank_tran_id:
-                        raise HTTPException(status_code=409, detail="Conflicting callback")
-                    return {"accepted": True, "verified": True, "status": row.state}
+                if row.state in _FINAL_STATES:
+                    if (row.state in ("paid", "risk_review") and row.val_id == val_id
+                            and row.bank_tran_id == bank_tran_id):
+                        return {"accepted": True, "verified": True, "status": row.state}
+                    _audit_blocked_ipn(db, row, status=status, val_id=val_id,
+                                       reason="late_terminal_state_conflict")
+                    return {"accepted": True, "verified": False}
                 if row.state not in ("pending_payment", "initiating", "initiation_unknown"):
                     return {"accepted": True, "verified": False}
                 # Database UNIQUE constraints prevent reuse of provider references.

@@ -33,9 +33,12 @@ def verify_migration(url: str) -> None:
     try:
         Base.metadata.create_all(engine, tables=[Checkout.__table__])
         sql = (ROOT / "migrations" / "001_merchant_checkout_audit.sql").read_text(encoding="utf-8")
+        ipn_sql = (ROOT / "migrations" / "002_ipn_terminal_security_events.sql").read_text(encoding="utf-8")
         with psycopg.connect(url, autocommit=True) as db:
             db.execute(sql)
             db.execute(sql)  # repeatability test
+            db.execute(ipn_sql)
+            db.execute(ipn_sql)  # repeatability test
             ref = "ci-" + uuid4().hex[:18]
             order = "ci-order-" + uuid4().hex[:16]
             with db.transaction():
@@ -56,7 +59,17 @@ def verify_migration(url: str) -> None:
             columns = {r[0] for r in db.execute("""SELECT column_name FROM information_schema.columns
                 WHERE table_name='merchant_checkouts'""").fetchall()}
             assert not ({"card_no", "card_no_masked", "store_passwd"} & columns)
-        print("PASS: disposable PostgreSQL migration twice; state audit and reconciliation verified")
+            audit_columns = {r[0] for r in db.execute("""SELECT column_name FROM information_schema.columns
+                WHERE table_name='merchant_checkout_ipn_security_events'""").fetchall()}
+            assert {"event_id", "checkout_id", "existing_state", "reason",
+                    "status_hint", "val_id_digest", "recorded_at"} <= audit_columns
+            assert not ({"raw_payload", "card_no", "customer_name", "customer_email",
+                         "customer_phone", "store_passwd"} & audit_columns)
+            db.execute("""INSERT INTO merchant_checkout_ipn_security_events
+                 (event_id, checkout_id, existing_state, reason, status_hint, val_id_digest)
+                 VALUES (%s,%s,%s,%s,%s,%s)""",
+                 (uuid4().hex, ref, "failed", "terminal_state_blocked", "VALID", "0"*64))
+        print("PASS: disposable PostgreSQL migrations 001/002; state audit, security event and reconciliation verified")
     finally:
         engine.dispose()
 
