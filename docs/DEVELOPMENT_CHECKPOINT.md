@@ -117,3 +117,52 @@ No change to existing hosted merchant checkout PostgreSQL migrations 001–003. 
 3. Add independent security, authentication, dependency and data-minimization verification without introducing unlicensed financial operations.
 
 **Boundary:** Everything added here operates on fictitious funds and synthetic identities. This document does not imply a licensed bank, an approved PSP, or a production financial product.
+
+
+---
+
+## Cycle 003 — November 3–4, 2026
+
+- **Status:** Android-first mobile sandbox code implemented and committed; hosted CI is authoritative for final verification. No production financial capability.
+- **Repository:** https://github.com/shiyamprimetrade-sketch/Slickk-Pay
+- **Starting verified Cycle 002 commit:** `f4077332eb8c8befe8e47038bacde23f4b8593df`
+- **Source implementation commit:** `d6092c5ac4531c43d5530cd033e77f430aa40b43`
+- **Follow-up fix commits:** `c5d881b3a976883ecd355bc2706b43642ea575ab` (React Native strict typechecking and agent route order); `739a6dd42b53583714e6958677d1abef456dbfb4` (Metro NodeNext relative import resolver); `4358c7403b8adb3f3276ef9bb95f3e33abcacf06` (Hermes .hbc artifact assertion).
+- **Branch:** `feature/slickk-pay-cycle-003`
+- **Draft PR:** https://github.com/shiyamprimetrade-sketch/Slickk-Pay/pull/5 (stacked on Cycle 002; `main` unchanged)
+- **GitHub code comparison:** https://github.com/shiyamprimetrade-sketch/Slickk-Pay/compare/f4077332eb8c8befe8e47038bacde23f4b8593df...4358c7403b8adb3f3276ef9bb95f3e33abcacf06
+- **Source lines added:** 3,667 original TypeScript/TSX production lines (41 source files in `apps/mobile-sandbox/src` and `App.tsx`; 3,619 nonblank, non-line-comment); zero preexisting production source removed. Verified against GitHub diff.
+- **Test lines added:** 338 Node.js test-source lines in four new `apps/mobile-sandbox/test/*.test.mjs` files, counted separately.
+- **Other changes:** Expo/React Native app and TypeScript configurations, Metro resolver, CI workflow, .gitignore, mobile README and docs/MOBILE_CYCLE003.md. These do not contribute to the 3,667-line source target.
+
+### Functional implementation
+
+1. Fully isolated React Native/Expo Android-first customer, agent and merchant **fictional-data** interface with Bangla and English support and explicit simulation banners.
+2. Exact integer BDT/poisha calculations, quote revisions, expiry, local-only review and cancellation; proposed cash-out/customer/merchant fees visibly labeled **unapproved pilot assumptions**, including non-verified tax treatment.
+3. Synthetic accounts, merchant invoices, filtered sample activities, receipts labeled **not proof of payment**, QR payloads restricted to `slickkpaylab://`, agent directory, cash/float shortage indicators, support drafts and demo notifications.
+4. Role-aware navigation, session expiry, redaction of private identifiers, accessible status labels, mobile low-memory resource budgets and fail-closed read-only network contracts.
+5. Financial posting **always disabled in the mobile client**. No money movement, agent physical cash confirmation, deposits, microloans, provider settlement, real KYC or offline financial replay is possible.
+
+### Verification and corrections
+
+- Local Python baseline `python -m unittest discover -s tests -q`: **338 passed**.
+- Existing read-only TypeScript inspection SDK `npm test`: **9 passed**.
+- Mobile `cd apps/mobile-sandbox && npm run test:core`: **44 passed**.
+- Strict mobile core `tsc -p tsconfig.core.json --noEmit`: passed.
+- Hosted TypeScript/TSX checks exposed and subsequently verified fixes for three type/argument/route-order errors.
+- Hosted Metro initially rejected relative `.js` source specifiers; resolved through `metro.config.cjs`. Subsequent GitHub Actions log reported successful Android Hermes export of `_expo/static/js/android/AppEntry-*.hbc` (~1.6 MB). The separate artifact assertion was corrected to accept Hermes output in the latest code commit.
+- Mobile CI run for final code: https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41692508548 (inspect job conclusion; do **not** infer successful APK/device installation).
+- Existing Python, merchant PostgreSQL migration and Cycle 002 PostgreSQL/TypeScript workflows remain required for regression evidence. No production database touched.
+- **No native APK, Android emulator test, physical-device installation, external gateway payment, bank settlement or Render deployment performed.** An exported Hermes bundle is not an APK.
+
+### Technology decisions
+
+- Added TypeScript, React Native/Expo, Metro tooling, Node.js CI, YAML; preserved Python/FastAPI, SQLAlchemy, sandbox PostgreSQL and existing checkout.
+- No Go ledger service, NestJS rewrite, Kotlin native module or separate microservice introduced without benchmark evidence.
+- Mobile code cannot use the privileged Cycle 002 `X-Sim-Operator-Key`; no real credentials are shipped.
+
+### Security limitations / next cycle
+
+- Previously exposed gateway/hosting/database secrets must be rotated through private provider consoles; never commit secrets.
+- Public financial activity, deposit taking, agent cash handover and lending remain disabled without licensed/regulated operating arrangements and independent security reviews.
+- **Cycle 004 priority:** authenticated and authorized *sandbox-only* customer/agent server contract, build/install/test Android app on real device or emulator, verify Bangla accessibility and secure storage properties; preserve ledger/posting isolation and strengthen process-crash fault injection and privacy review.
