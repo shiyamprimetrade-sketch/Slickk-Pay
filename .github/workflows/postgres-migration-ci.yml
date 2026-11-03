@@ -36,6 +36,7 @@ jobs:
         run: python -m unittest tests.test_migration_target_guard -v
       - name: Run migration against disposable PostgreSQL
         env:
+          PYTHONPATH: .
           CI: 'true'
           SLICKK_EPHEMERAL_DB_TEST: 'true'
           SLICKK_CI_DATABASE_URL: postgresql://slickk_ci:ci-local-password-only@127.0.0.1:5432/slickk_ci_test
