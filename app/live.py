@@ -49,6 +49,32 @@ def _database_url(raw: str) -> URL:
     return parsed
 
 
+def _read_gateway_password() -> str:
+    """Read either gateway password alias; reject conflicting values without logging secrets."""
+    preferred = os.getenv("SSLCOMMERZ_STORE_PASSWD")
+    legacy = os.getenv("SSLCOMMERZ_STORE_PASSWORD")
+    if preferred is not None and legacy is not None and preferred != legacy:
+        raise ValueError("Conflicting SSLCOMMERZ password environment variables")
+    return preferred if preferred is not None else (legacy or "")
+
+
+def _read_live_flag() -> bool:
+    """Require explicit production routing. Never infer live payments from alias alone."""
+    configured = os.getenv("SLICKK_GATEWAY_LIVE", "false").strip().lower()
+    if configured not in ("true", "false"):
+        raise ValueError("SLICKK_GATEWAY_LIVE must be true or false")
+    sandbox = os.getenv("SSLCOMMERZ_IS_SANDBOX")
+    if sandbox is not None:
+        sandbox = sandbox.strip().lower()
+        if sandbox not in ("true", "false"):
+            raise ValueError("SSLCOMMERZ_IS_SANDBOX must be true or false")
+        if sandbox == configured:
+            raise ValueError("Contradictory gateway sandbox and live mode settings")
+        if sandbox == "false" and "SLICKK_GATEWAY_LIVE" not in os.environ:
+            raise ValueError("Explicit SLICKK_GATEWAY_LIVE is required for production routing")
+    return configured == "true"
+
+
 class Checkout(Base):
     __tablename__ = "merchant_checkouts"
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
@@ -73,6 +99,7 @@ class Config:
     gateway_store_id: str = ""
     gateway_store_password: str = ""
     public_base_url: str = "http://localhost:8000"
+    callback_prefix: str = "/v1/gateway"
     database_url: str = "sqlite+pysqlite:///:memory:"
 
     @classmethod
@@ -80,16 +107,19 @@ class Config:
         return cls(
             environment=os.getenv("SLICKK_ENV", "staging"),
             enabled=os.getenv("SLICKK_ENABLE_CHECKOUTS", "false").lower() == "true",
-            gateway_live=os.getenv("SLICKK_GATEWAY_LIVE", "false").lower() == "true",
+            gateway_live=_read_live_flag(),
             regulatory_confirmation=os.getenv("SLICKK_REGULATORY_SIGNOFF", "false").lower() == "true",
             api_key=os.getenv("SLICKK_MERCHANT_API_KEY", ""),
             gateway_store_id=os.getenv("SSLCOMMERZ_STORE_ID", ""),
-            gateway_store_password=os.getenv("SSLCOMMERZ_STORE_PASSWORD", ""),
+            gateway_store_password=_read_gateway_password(),
             public_base_url=os.getenv("SLICKK_PUBLIC_BASE_URL", "http://localhost:8000"),
+            callback_prefix=os.getenv("SLICKK_CALLBACK_PREFIX", "/v1/gateway"),
             database_url=os.getenv("DATABASE_URL", "sqlite+pysqlite:///:memory:"),
         )
 
     def validate(self):
+        if self.callback_prefix not in ("/v1/gateway", "/v1/payments"):
+            raise ValueError("SLICKK_CALLBACK_PREFIX must use an approved path")
         if self.environment not in ("staging", "production"):
             raise ValueError("SLICKK_ENV must be staging or production")
         parsed = urlparse(self.public_base_url)
@@ -118,6 +148,15 @@ class Config:
     @property
     def gateway_base(self) -> str:
         return f"https://{self.gateway_host}"
+
+    @property
+    def callback_paths(self) -> dict[str, str]:
+        base = self.public_base_url.rstrip("/") + self.callback_prefix
+        if self.callback_prefix == "/v1/payments":
+            return {"success_url": base + "/success", "fail_url": base + "/fail",
+                    "cancel_url": base + "/cancel", "ipn_url": base + "/ipn"}
+        return {"success_url": base + "/return/success", "fail_url": base + "/return/fail",
+                "cancel_url": base + "/return/cancel", "ipn_url": base + "/ipn"}
 
 
 class CheckoutCreate(BaseModel):
@@ -154,6 +193,17 @@ def _amount(amount_bdt: str) -> int:
     return minor
 
 
+def _gateway_net_amount_plausible(value: object, gross_poisha: int) -> bool:
+    """Gateway net amount check. It is not proof of actual bank settlement."""
+    if value is None:
+        return True
+    try:
+        minor = taka_to_poisha(str(value))
+    except (DomainError, ValueError, TypeError):
+        return False
+    return 0 < minor <= gross_poisha
+
+
 def _canonical_fingerprint(body: CheckoutCreate, minor: int) -> str:
     safe = body.model_dump(exclude={"amount_bdt"})
     safe["amount_poisha"] = minor
@@ -185,7 +235,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
     engine = create_engine(_database_url(cfg.database_url), pool_pre_ping=True)
     Base.metadata.create_all(engine)
     Session = sessionmaker(engine, expire_on_commit=False)
-    api = FastAPI(title="Slickk Pay Hosted Checkout", version="0.4.0", docs_url=None, redoc_url=None,
+    api = FastAPI(title="Slickk Pay Hosted Checkout", version="0.5.0", docs_url=None, redoc_url=None,
                   description="Merchant checkout through licensed gateway; no wallet, remittance or loan issuance")
 
     @api.middleware("http")
@@ -208,7 +258,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
 
     @api.get("/")
     def root():
-        return {"service": "Slickk Pay Checkout", "version": "0.4.0", "wallets": "disabled", "loans": "disabled",
+        return {"service": "Slickk Pay Checkout", "version": "0.5.0", "wallets": "disabled", "loans": "disabled",
                 "enabled": cfg.enabled, "gateway": "live" if cfg.gateway_live else "sandbox"}
 
     @api.get("/healthz")
@@ -249,10 +299,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
         params = {
             "store_id": cfg.gateway_store_id, "store_passwd": cfg.gateway_store_password,
             "total_amount": display_amount(minor), "currency": "BDT", "tran_id": tran_id,
-            "success_url": cfg.public_base_url + "/v1/gateway/return/success",
-            "fail_url": cfg.public_base_url + "/v1/gateway/return/fail",
-            "cancel_url": cfg.public_base_url + "/v1/gateway/return/cancel",
-            "ipn_url": cfg.public_base_url + "/v1/gateway/ipn",
+            **cfg.callback_paths,
             "emi_option": "0", "shipping_method": "NO", "num_of_item": "1",
             "product_name": body.product_name, "product_category": body.product_category,
             "product_profile": "general", "cus_name": body.customer_name,
@@ -294,6 +341,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
                 raise HTTPException(status_code=404, detail="Order not found")
             return {**_view(row), "gateway_environment": "live" if cfg.gateway_live else "sandbox"}
 
+    @api.post("/v1/payments/ipn")
     @api.post("/v1/gateway/ipn")
     async def receive_ipn(request: Request):
         if not cfg.enabled:
@@ -341,6 +389,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
                  and verified.get("val_id") == val_id
                  and verified.get("currency") == "BDT"
                  and amount == expected_amount
+                 and _gateway_net_amount_plausible(verified.get("store_amount"), expected_amount)
                  and (not verified.get("store_id") or verified.get("store_id") == cfg.gateway_store_id))
         if not valid:
             # mismatch does not mutate order or mark it paid
@@ -370,6 +419,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
         except IntegrityError:
             raise HTTPException(status_code=409, detail="Conflicting payment provider reference")
 
+    @api.api_route("/v1/payments/{outcome}", methods=["GET", "POST"], response_class=HTMLResponse)
     @api.api_route("/v1/gateway/return/{outcome}", methods=["GET", "POST"], response_class=HTMLResponse)
     def payment_return(outcome: str):
         # Browser redirects CANNOT mark payments paid. Status comes from validated IPN.

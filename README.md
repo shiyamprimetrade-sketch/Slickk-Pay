@@ -97,3 +97,7 @@ The Render Blueprint [`render.yaml`](render.yaml) defines **disabled-by-default 
 - Added PostgreSQL state audit / reconciliation migration, and a read-only UTC-day report export.
 - No provided secrets are committed, and no live payment was initiated.
 - See docs/PROVIDER_CONFIG_AND_MIGRATION.md before any deployment.
+
+## v0.5 provider compatibility (review only)
+
+Gateway password-variable aliases, strict sandbox/live mode checks and optional `/v1/payments` callbacks are supported. See [provider contract v0.5](docs/PROVIDER_CONTRACT_V05.md). All checkouts remain disabled by default; exposed credentials must be rotated.
