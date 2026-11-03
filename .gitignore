@@ -19,3 +19,7 @@ data/
 *.pfx
 .env*
 !.env.example
+
+# Cycle 002 TypeScript build outputs
+clients/inspection-sdk/dist/
+clients/inspection-sdk/node_modules/
