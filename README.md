@@ -73,3 +73,46 @@ Remittance: authorised remittance provider -> local licensed payout bank/MFS par
 - BB PSD framework and provider list: https://www.bb.org.bd/en/index.php/financialsystems/paysystems
 
 Regulatory applicability must be validated with qualified Bangladeshi legal/regulatory counsel before any live service or public brand usage implying banking authorization.
+
+---
+
+## v0.2 — Separate gateway-backed checkout service (integration candidate)
+
+**Do not publicly run the old `app.main:app` sandbox.** A new separate ASGI application, `app.live:app`, has been added for a licensed merchant's **SSLCOMMERZ hosted checkout** integration. Its checkout endpoints are OFF by default, and it has no demo-wallet transfers, fake loans, reset endpoint, remittances, or custodied funds. The new service requires a high-entropy server-side merchant API key and always validates provider IPNs against the gateway validation API before marking an order paid. No actual gateway transaction has been attempted.
+
+- Deployment and approval checklist: [docs/LIVE_GATEWAY_AND_DEPLOYMENT.md](docs/LIVE_GATEWAY_AND_DEPLOYMENT.md)
+- Example non-secret configuration: [.env.example](.env.example)
+- Docker entrypoint: `app.live:app`, **not** the local `app.main:app`.
+- Tests: `python -m unittest discover -s tests -v`.
+
+**Deployment is not the same as regulatory approval or a live transaction.** Live checkout is blocked until the actual licensed entity/merchant agreement, provider credentials, persistent PostgreSQL, HTTPS and operational reviews have been supplied and verified. User financial data and real loans require separate safeguards and authorization. Never paste API keys, NID scans or private authorisation documents into public GitHub.
+
+## v0.3 — Render staging blueprint (not yet deployed)
+
+The Render Blueprint [`render.yaml`](render.yaml) defines **disabled-by-default staging only** with a free staging PostgreSQL instance. See [`docs/RENDER_STAGING_DEPLOYMENT.md`](docs/RENDER_STAGING_DEPLOYMENT.md) for deployment steps, key rotation instructions, and go/no-go checks. The app accepts Render's default `postgresql://` database URL using the `psycopg` SQLAlchemy dialect. The local-only demo is **never** selected by the deployment Dockerfile. Run `python -m unittest discover -s tests -v` before promoting a build. No provider contracts, approvals, or real transactions are established by running this software.
+
+## v0.4 — Gateway configuration and data migration
+
+- Merchant-only checkout now blocks regulated wallet top-ups, loans and remittances.
+- Added PostgreSQL state audit / reconciliation migration, and a read-only UTC-day report export.
+- No provided secrets are committed, and no live payment was initiated.
+- See docs/PROVIDER_CONFIG_AND_MIGRATION.md before any deployment.
+
+## v0.5 provider compatibility (review only)
+
+Gateway password-variable aliases, strict sandbox/live mode checks and optional `/v1/payments` callbacks are supported. See [provider contract v0.5](docs/PROVIDER_CONTRACT_V05.md). All checkouts remain disabled by default; exposed credentials must be rotated.
+
+## v0.9 — Financial contract, IPN integrity and merchant signatures
+
+- Public `GET /v1/capabilities` describes only BDT hosted merchant checkout; no direct wallet, credit, FX, or remittance service is enabled.
+- Provider IPNs reject duplicate and malformed URL-form parameters before independent validation.
+- Migration `003` records provider-reported net separately from actual bank settlement, and is tested on disposable PostgreSQL.
+- Enabled production requires server-authenticated HMAC order details. See `docs/FINANCIAL_CONTRACT_V09.md`.
+- Render staging keeps all money movement disabled and targets the reviewed feature branch.
+- No leaked credentials or proprietary third-party source code are incorporated.
+
+## v1.0 — Merchant operations evidence and staging previews
+
+An independent non-settling operations toolkit now lives in `app/ops/`: merchant invoice pricing, exact BDT gateway/bank reconciliation, balanced shadow journal, risk assessment, manual dispute casework, HMAC notification signatures with replay protection, bounded outbox retries, and readiness evidence reports.
+
+`SLICKK_OPS_PREVIEW_ENABLED` defaults to `false` and fails startup if enabled in production. All staging-only previews require merchant server authentication; no real gateway calls, bank transfers, loans, stored-value issuance or refunds are performed. Unverified statements and regulatory assertions never become verified facts through this API. See [operations documentation](docs/OPERATIONS_V10.md). Run `python -m unittest discover -s tests -v` to verify.

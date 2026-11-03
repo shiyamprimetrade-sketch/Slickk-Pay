@@ -1,0 +1,37 @@
+# Render Blueprint: STAGING ONLY. No real checkout, loans, wallets, or remittances.
+# Never add real secrets to this repository. See docs/RENDER_STAGING_DEPLOYMENT.md.
+services:
+  - type: web
+    name: slickk-pay-staging
+    runtime: docker
+    plan: free
+    branch: feat/hosted-checkout-v0.2
+    autoDeployTrigger: "off"
+    healthCheckPath: /healthz
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: SLICKK_ENV
+        value: staging
+      - key: SLICKK_ENABLE_CHECKOUTS
+        value: "false"
+      - key: SLICKK_OPS_PREVIEW_ENABLED
+        value: "false"
+      - key: SLICKK_GATEWAY_LIVE
+        value: "false"
+      - key: SLICKK_REGULATORY_SIGNOFF
+        value: "false"
+      - key: SLICKK_PUBLIC_BASE_URL
+        sync: false
+      - key: SLICKK_MERCHANT_API_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: slickk-pay-staging-db
+          property: connectionString
+
+databases:
+  - name: slickk-pay-staging-db
+    plan: free
+    databaseName: slickk_pay_staging
+    user: slickk_pay_staging
