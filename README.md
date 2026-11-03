@@ -90,3 +90,10 @@ Regulatory applicability must be validated with qualified Bangladeshi legal/regu
 ## v0.3 — Render staging blueprint (not yet deployed)
 
 The Render Blueprint [`render.yaml`](render.yaml) defines **disabled-by-default staging only** with a free staging PostgreSQL instance. See [`docs/RENDER_STAGING_DEPLOYMENT.md`](docs/RENDER_STAGING_DEPLOYMENT.md) for deployment steps, key rotation instructions, and go/no-go checks. The app accepts Render's default `postgresql://` database URL using the `psycopg` SQLAlchemy dialect. The local-only demo is **never** selected by the deployment Dockerfile. Run `python -m unittest discover -s tests -v` before promoting a build. No provider contracts, approvals, or real transactions are established by running this software.
+
+## v0.4 — Gateway configuration and data migration
+
+- Merchant-only checkout now blocks regulated wallet top-ups, loans and remittances.
+- Added PostgreSQL state audit / reconciliation migration, and a read-only UTC-day report export.
+- No provided secrets are committed, and no live payment was initiated.
+- See docs/PROVIDER_CONFIG_AND_MIGRATION.md before any deployment.

@@ -10,3 +10,12 @@ data/
 !.env.example
 *.sqlite3
 *.db
+
+# Reporting and private connection material
+*.csv
+*.pem
+*.key
+*.p12
+*.pfx
+.env*
+!.env.example
