@@ -61,3 +61,59 @@ No change to existing hosted merchant checkout PostgreSQL migrations 001–003. 
 8. Add offline credit scenario stress testing, borrower disclosure templates and lender integration interfaces without live loans.
 
 **Boundary:** All Cycle 001 value balances, cash, customer profiles, credentials, limits and loans are synthetic. Do not describe them as real accounts, live payments, a licensed bank or authorized lending.
+
+---
+
+## Cycle 002 — November 3, 2026
+
+- **Implementation status:** IMPLEMENTATION COMPLETE, sandbox-only; GitHub CI verified; not deployed.
+- **Repository:** https://github.com/shiyamprimetrade-sketch/Slickk-Pay
+- **Starting commit / previous completed checkpoint:** `ec6165dd507e65544bdb6483d758f134b0e2aa3d`.
+- **Implementation & final fix commit:** `66603b5af4a909d1110c19bd538fcab8713de878`. This document is the post-verification checkpoint and will be a subsequent administrative commit; the latest branch head is its authoritative final SHA.
+- **Branch:** `feature/slickk-pay-cycle-002`.
+- **Draft PR:** https://github.com/shiyamprimetrade-sketch/Slickk-Pay/pull/4 (base `feature/slickk-pay-cycle-001`; previous PR #3 and PR #1 remain separate and draft).
+- **GitHub PR diff at the implementation commit:** 51 changed files, 5,646 total additions, zero deletions. These include tests, SQL, documentation and configuration, not solely executable code.
+- **Meaningful new production Python/TypeScript source:** **4,448 physical lines**, across 25 new Python modules and 5 new strict TypeScript SDK modules; **3,917 nonblank** and **3,868 nonblank, non-line-comment lines**.
+- **New test code:** 551 source lines across six Python tests and one Node.js test file, counted separately.
+- **Production source removed:** zero. No preexisting production modules were rewritten.
+- **Other additions:** Versioned migration `004_pg_sandbox_cycle002.sql` (279 SQL lines before the driver-format correction), disposable PostgreSQL CI runner, strict TypeScript package/build configuration, GitHub Actions workflow, technical architecture docs and README update. These are excluded from the 4,448 production source count.
+
+### Verified engineering
+1. New opt-in `app/pgsandbox` implements exact-integer poisha accounting, zero-sum posting, synthetic customer/agent/merchant ownership, row-level locks, SERIALIZABLE PostgreSQL posting, duplicate-key prevention, frozen/insufficient-funds restrictions, balanced journal reconstruction and immutable history safeguards.
+2. Separate sandbox customer transfer, cash-in/out reservations, two-party handover confirmation, disputed uncertain completions, replay-safe handover digests, transactional velocity controls, audit events and notification outbox records.
+3. Isolated read-only FastAPI inspection contract; not mounted on deployed `app.live:app`; no transaction-posting HTTP route.
+4. Strict TypeScript SDK, safe financial parsing, Bangla/English display, server-authoritative balance rule and refusal to label sandbox balances as live.
+5. Internal financial scenario/profitability and agent float research using synthetic data; no live provider rates or customer credit decisions.
+6. New guarded migration and PostgreSQL conformance CI. Previous merchant checkout migrations 001–003 remain unchanged.
+7. Fixed a PostgreSQL/psycopg DBAPI parsing regression: migration trigger previously used an unescaped `%` in a PL/pgSQL `RAISE EXCEPTION`; changed to a static error message and added test before passing hosted CI.
+
+### Tests and evidence
+- Local `python -m unittest discover -s tests -q` → **338 passed** after trigger correction.
+- Local `python -m compileall -q app/pgsandbox scripts/verify_cycle002_pg.py` → passed.
+- Local `tsc --noEmit -p tsconfig.json && node --test tests/*.test.mjs` in `clients/inspection-sdk` → **9 passed**.
+- GitHub Python unit tests → [success](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41667893482).
+- Existing disposable PostgreSQL merchant migration CI → [success](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41667893446).
+- New disposable PostgreSQL 16 sandbox concurrency/schema/rollback + TypeScript contracts → [both jobs successful](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41667893443).
+- Verified exact source Git blob SHA-1s against the locally tested files during upload; 51 tracked changes are present in PR #4.
+- **No Render deployment, Bangladesh Bank/network connection, real SSLCOMMERZ transaction, production migration or actual financial settlement took place.**
+
+### Technology and architecture decisions
+- **Languages actually added:** Python 3.11-compatible source, strict TypeScript, PostgreSQL SQL, YAML. Node.js 22 and PostgreSQL 16 are CI/test targets, not additional deployed production services.
+- **Frameworks preserved:** FastAPI, SQLAlchemy, Pydantic, Python unittest, existing fictional SQLite sandbox and separate SSLCOMMERZ merchant checkout service.
+- **Databases changed:** Separate disposable PostgreSQL sandbox schema only. No production database or existing hosted merchant checkout schema was modified.
+- **Go/NestJS/React Native deferred** pending independently benchmarked need, contract stability and security review. No code generated merely to use extra languages.
+- **CI environment boundary:** explicit CI switch, test database `slickk_ci_test`, localhost-only PostgreSQL connection. No production private secrets required.
+
+### Security limitations and remaining blockers
+- Previously pasted credentials must be revoked/rotated in provider accounts. No real secrets or customer records were added.
+- Guarded CI conformance is not full production scalability, HA, failover, risk monitoring or independent penetration testing.
+- No real KYC, hardware-backed keys, lender authorization, digital-bank license, bank or SSLCOMMERZ settlement has been verified.
+- New simulator has not been deployed to Render; it must remain isolated from live checkout.
+- Pending: independent review of SERIALIZABLE retry policy under longer crash/network partitions, production-fidelity end-to-end reconciliation, privacy/security threat assessment, agent Android prototype, and real merchant staging integration after authorization.
+
+### Next Cycle 003 priority
+1. Design an Android-first React Native customer/agent sandbox connected to the read-only SDK and supported by authenticated server simulation, with Bangla/English UX and no offline balance authorization.
+2. Harden ledger event/reconciliation proofs and operational incident recovery using stronger fault injection and process crash tests.
+3. Add independent security, authentication, dependency and data-minimization verification without introducing unlicensed financial operations.
+
+**Boundary:** Everything added here operates on fictitious funds and synthetic identities. This document does not imply a licensed bank, an approved PSP, or a production financial product.

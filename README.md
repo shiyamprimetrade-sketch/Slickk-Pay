@@ -116,3 +116,17 @@ Gateway password-variable aliases, strict sandbox/live mode checks and optional 
 An independent non-settling operations toolkit now lives in `app/ops/`: merchant invoice pricing, exact BDT gateway/bank reconciliation, balanced shadow journal, risk assessment, manual dispute casework, HMAC notification signatures with replay protection, bounded outbox retries, and readiness evidence reports.
 
 `SLICKK_OPS_PREVIEW_ENABLED` defaults to `false` and fails startup if enabled in production. All staging-only previews require merchant server authentication; no real gateway calls, bank transfers, loans, stored-value issuance or refunds are performed. Unverified statements and regulatory assertions never become verified facts through this API. See [operations documentation](docs/OPERATIONS_V10.md). Run `python -m unittest discover -s tests -v` to verify.
+
+
+## Cycle 002 — guarded PostgreSQL financial sandbox and TypeScript inspection
+
+Cycle 002 is reviewed independently in [draft PR #4](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/pull/4), stacked on Cycle 001; **do not merge directly to production `main`**.
+
+- `app/pgsandbox/`: separate, opt-in fictional-money transactional journal, transfers, agent-cash state, idempotency and read-only audits. The PostgreSQL CI target is restricted to `slickk_ci_test` on localhost; not a commercial bank ledger.
+- `clients/inspection-sdk/`: strict TypeScript read-only client with validated sandbox contract and Bangla/English strings; no authoritative balances or offline payment authorization.
+- `migrations/004_pg_sandbox_cycle002.sql`: additive *disposable sandbox* PostgreSQL schema and immutable-journal trigger, exercised by a separate PostgreSQL 16 CI workflow.
+- Technical records: [technology stack](docs/TECH_STACK.md), [system architecture](docs/SYSTEM_ARCHITECTURE.md), [language responsibilities](docs/LANGUAGE_RESPONSIBILITIES.md), [API contracts](docs/API_CONTRACTS.md), [database architecture](docs/DATABASE_ARCHITECTURE.md), [security architecture](docs/SECURITY_ARCHITECTURE.md), [infrastructure](docs/INFRASTRUCTURE.md), and [architecture decisions](docs/TECHNICAL_DECISIONS.md).
+
+**Verified GitHub checks:** [Python regression tests](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41667893482), [merchant migration rehearsal](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41667893446), and [new sandbox PostgreSQL + TypeScript contracts](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41667893443) all completed successfully on implementation commit `66603b5`.
+
+All balances, customer identities, transfers, cash, agents and loans in these modules are synthetic. No real funds move, no wallet is issued and no loans are disbursed.
