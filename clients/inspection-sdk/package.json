@@ -1,0 +1,18 @@
+{
+  "name": "@slickk-pay/fictional-inspection-sdk",
+  "version": "0.2.0-sandbox",
+  "private": true,
+  "type": "module",
+  "description": "Read-only sandbox financial integrity SDK; never handles real money",
+  "scripts": {
+    "check": "tsc --noEmit --project tsconfig.json",
+    "build": "tsc --project tsconfig.json",
+    "test": "npm run build && node --test tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  }
+}
