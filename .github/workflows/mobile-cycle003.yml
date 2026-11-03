@@ -32,5 +32,7 @@ jobs:
         run: npx tsc -p tsconfig.json --noEmit
       - name: Validate Expo configuration and export Android JavaScript bundle
         run: npx expo export --platform android --output-dir /tmp/slickk-pay-lab-android-bundle
-      - name: Assert Android bundle was produced
-        run: test -n "$(find /tmp/slickk-pay-lab-android-bundle -name '*.js' -type f -print -quit)"
+      - name: Assert Android Hermes or JavaScript bundle was produced
+        run: |
+          test -f /tmp/slickk-pay-lab-android-bundle/metadata.json
+          test -n "$(find /tmp/slickk-pay-lab-android-bundle -type f \( -name '*.hbc' -o -name '*.js' \) -print -quit)"
