@@ -23,3 +23,10 @@ data/
 # Cycle 002 TypeScript build outputs
 clients/inspection-sdk/dist/
 clients/inspection-sdk/node_modules/
+
+# Cycle 003 Expo / React Native local artifacts
+apps/mobile-sandbox/dist/
+apps/mobile-sandbox/node_modules/
+apps/mobile-sandbox/.expo/
+apps/mobile-sandbox/android/
+apps/mobile-sandbox/ios/

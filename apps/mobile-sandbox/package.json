@@ -1,0 +1,22 @@
+{
+  "name": "@slickk-pay/mobile-sandbox",
+  "private": true,
+  "version": "0.3.0",
+  "type": "module",
+  "description": "Bangladesh Android-first fictional-money mobile prototype, no real payment API",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "check:core": "tsc -p tsconfig.core.json --noEmit",
+    "build:core": "tsc -p tsconfig.core.json",
+    "test:core": "npm run build:core && node --test test/*.test.mjs",
+    "start": "expo start",
+    "android": "expo start --android"
+  },
+  "dependencies": {
+    "expo": "~57.0.0",
+    "react": "19.2.3",
+    "react-native": "0.86.0"
+  },
+  "devDependencies": {"typescript":"5.8.3","@types/react":"^19.2.0"},
+  "engines":{"node":">=22.13.0"}
+}

@@ -1,0 +1,38 @@
+name: Cycle 003 Android-first mobile sandbox contracts
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mobile-sandbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile-sandbox
+    env:
+      SLICKK_ENV: staging
+      SLICKK_ENABLE_CHECKOUTS: "false"
+      SLICKK_GATEWAY_LIVE: "false"
+      SLICKK_REGULATORY_SIGNOFF: "false"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install compatible Expo / React Native / TypeScript packages
+        run: npm install --no-package-lock --no-audit --no-fund
+      - name: Compile strict financial and state-model contracts
+        run: npm run check:core
+      - name: Run finance, offline and security tests
+        run: npm run test:core
+      - name: Typecheck React Native Android-first screens
+        run: npx tsc -p tsconfig.json --noEmit
+      - name: Validate Expo configuration and export Android JavaScript bundle
+        run: npx expo export --platform android --output-dir /tmp/slickk-pay-lab-android-bundle
+      - name: Assert Android Hermes or JavaScript bundle was produced
+        run: |
+          test -f /tmp/slickk-pay-lab-android-bundle/metadata.json
+          test -n "$(find /tmp/slickk-pay-lab-android-bundle -type f \( -name '*.hbc' -o -name '*.js' \) -print -quit)"
