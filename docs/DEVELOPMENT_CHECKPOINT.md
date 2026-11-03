@@ -74,7 +74,7 @@ No change to existing hosted merchant checkout PostgreSQL migrations 001–003. 
 - **Draft PR:** https://github.com/shiyamprimetrade-sketch/Slickk-Pay/pull/4 (base `feature/slickk-pay-cycle-001`; previous PR #3 and PR #1 remain separate and draft).
 - **GitHub PR diff at the implementation commit:** 51 changed files, 5,646 total additions, zero deletions. These include tests, SQL, documentation and configuration, not solely executable code.
 - **Meaningful new production Python/TypeScript source:** **4,448 physical lines**, across 25 new Python modules and 5 new strict TypeScript SDK modules; **3,917 nonblank** and **3,868 nonblank, non-line-comment lines**.
-- **New test code:** 551 source lines across six Python tests and one Node.js test file, counted separately.
+- **New test code:** **558 added test-source lines**: 551 across six new Python test files and one new Node.js test file, plus seven lines of PostgreSQL migration regression coverage in an existing test file.
 - **Production source removed:** zero. No preexisting production modules were rewritten.
 - **Other additions:** Versioned migration `004_pg_sandbox_cycle002.sql` (279 SQL lines before the driver-format correction), disposable PostgreSQL CI runner, strict TypeScript package/build configuration, GitHub Actions workflow, technical architecture docs and README update. These are excluded from the 4,448 production source count.
 
