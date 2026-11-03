@@ -73,3 +73,16 @@ Remittance: authorised remittance provider -> local licensed payout bank/MFS par
 - BB PSD framework and provider list: https://www.bb.org.bd/en/index.php/financialsystems/paysystems
 
 Regulatory applicability must be validated with qualified Bangladeshi legal/regulatory counsel before any live service or public brand usage implying banking authorization.
+
+---
+
+## v0.2 — Separate gateway-backed checkout service (integration candidate)
+
+**Do not publicly run the old `app.main:app` sandbox.** A new separate ASGI application, `app.live:app`, has been added for a licensed merchant's **SSLCOMMERZ hosted checkout** integration. Its checkout endpoints are OFF by default, and it has no demo-wallet transfers, fake loans, reset endpoint, remittances, or custodied funds. The new service requires a high-entropy server-side merchant API key and always validates provider IPNs against the gateway validation API before marking an order paid. No actual gateway transaction has been attempted.
+
+- Deployment and approval checklist: [docs/LIVE_GATEWAY_AND_DEPLOYMENT.md](docs/LIVE_GATEWAY_AND_DEPLOYMENT.md)
+- Example non-secret configuration: [.env.example](.env.example)
+- Docker entrypoint: `app.live:app`, **not** the local `app.main:app`.
+- Tests: `python -m unittest discover -s tests -v`.
+
+**Deployment is not the same as regulatory approval or a live transaction.** Live checkout is blocked until the actual licensed entity/merchant agreement, provider credentials, persistent PostgreSQL, HTTPS and operational reviews have been supplied and verified. User financial data and real loans require separate safeguards and authorization. Never paste API keys, NID scans or private authorisation documents into public GitHub.
