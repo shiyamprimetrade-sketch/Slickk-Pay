@@ -90,6 +90,13 @@ class RecoveryV2Tests(unittest.TestCase):
             self.cash.complete_cashout(agent_actor="sim_owner_agent",request_id=a.request.request_id,
                                        handover_reference="cashout:differenthandover")
 
+    def test_postgres_trigger_message_avoids_psycopg_percent_placeholders(self):
+        from app.pgsandbox.pg_migrations import migration_content, split_sql
+        migration = migration_content()
+        self.assertIn("RAISE EXCEPTION 'immutable fictional ledger audit record';", migration)
+        self.assertNotIn("ledger audit record: %", migration)
+        self.assertGreater(len(split_sql(migration)), 5)
+
     def test_sql_script_parser_rejects_unclosed_dollar(self):
         with self.assertRaises(InvalidValue):
             split_sql("DO $$ BEGIN RAISE EXCEPTION 'bad'; END;")

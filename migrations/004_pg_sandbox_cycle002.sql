@@ -216,7 +216,7 @@ CREATE INDEX IF NOT EXISTS s2_cash_history_request ON s2_cash_history (request_i
 CREATE OR REPLACE FUNCTION s2_reject_immutable_change()
 RETURNS TRIGGER AS $$
 BEGIN
-    RAISE EXCEPTION 'immutable fictional ledger audit record: %', TG_TABLE_NAME;
+    RAISE EXCEPTION 'immutable fictional ledger audit record';
 END;
 $$ LANGUAGE plpgsql;
 
