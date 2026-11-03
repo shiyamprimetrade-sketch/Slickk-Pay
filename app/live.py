@@ -368,6 +368,10 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
             if row is None:
                 return {"accepted": True, "verified": False}
             if row.state in ("paid", "risk_review"):
+                # A duplicate IPN is acknowledged as verified only if its provider
+                # reference matches the one already independently validated.
+                if not row.val_id or not hmac.compare_digest(row.val_id, val_id):
+                    return {"accepted": True, "verified": False}
                 return {"accepted": True, "verified": True, "status": row.state}
             expected_amount = row.amount_poisha
         try:
