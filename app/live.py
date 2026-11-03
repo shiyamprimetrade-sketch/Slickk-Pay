@@ -106,6 +106,8 @@ class Config:
                 raise ValueError("Production checkouts require persistent PostgreSQL")
         if self.enabled and (len(self.api_key) < 32 or "REPLACE" in self.api_key.upper() or not self.gateway_store_id or not self.gateway_store_password or "REPLACE" in self.gateway_store_id.upper() or "REPLACE" in self.gateway_store_password.upper()):
             raise ValueError("Enabled checkouts require merchant API key (32+ characters) and gateway credentials")
+        if self.enabled and (len(self.gateway_store_id) > 30 or len(self.gateway_store_password) > 30):
+            raise ValueError("SSLCOMMERZ store credentials exceed provider field limit")
         if self.environment == "production" and self.enabled and parsed.scheme != "https":
             raise ValueError("Production requires HTTPS")
 
@@ -129,6 +131,17 @@ class CheckoutCreate(BaseModel):
     customer_address: str = Field(default="Dhaka", min_length=2, max_length=50)
     customer_city: str = Field(default="Dhaka", min_length=2, max_length=50)
     customer_postcode: str = Field(default="1000", min_length=3, max_length=20)
+
+
+# Merchant checkout deliberately excludes regulated stored-value and credit.
+_RESTRICTED_PRODUCT = re.compile(
+    r"\b(?:wallet|e[\s-]?money|stored[\s-]?value|micro[\s-]?loan|loans?|remittance|cash[\s-]?in)\b",
+    re.IGNORECASE,
+)
+
+
+def _merchant_product_allowed(body: CheckoutCreate) -> bool:
+    return not _RESTRICTED_PRODUCT.search(body.product_name + " " + body.product_category)
 
 
 def _amount(amount_bdt: str) -> int:
@@ -172,7 +185,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
     engine = create_engine(_database_url(cfg.database_url), pool_pre_ping=True)
     Base.metadata.create_all(engine)
     Session = sessionmaker(engine, expire_on_commit=False)
-    api = FastAPI(title="Slickk Pay Hosted Checkout", version="0.3.0", docs_url=None, redoc_url=None,
+    api = FastAPI(title="Slickk Pay Hosted Checkout", version="0.4.0", docs_url=None, redoc_url=None,
                   description="Merchant checkout through licensed gateway; no wallet, remittance or loan issuance")
 
     @api.middleware("http")
@@ -195,7 +208,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
 
     @api.get("/")
     def root():
-        return {"service": "Slickk Pay Checkout", "version": "0.3.0", "wallets": "disabled", "loans": "disabled",
+        return {"service": "Slickk Pay Checkout", "version": "0.4.0", "wallets": "disabled", "loans": "disabled",
                 "enabled": cfg.enabled, "gateway": "live" if cfg.gateway_live else "sandbox"}
 
     @api.get("/healthz")
@@ -213,6 +226,8 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
     @api.post("/v1/checkouts", status_code=201)
     def initiate_checkout(body: CheckoutCreate, x_slickk_api_key: str | None = Header(default=None)):
         authorized(x_slickk_api_key)
+        if not _merchant_product_allowed(body):
+            raise HTTPException(status_code=422, detail="Regulated wallet, credit and remittance products are not enabled for merchant checkout")
         minor = _amount(body.amount_bdt)
         fingerprint = _canonical_fingerprint(body, minor)
         tran_id = "SP" + uuid4().hex[:26]  # <= 30 characters, per provider contract
