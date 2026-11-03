@@ -101,3 +101,12 @@ The Render Blueprint [`render.yaml`](render.yaml) defines **disabled-by-default 
 ## v0.5 provider compatibility (review only)
 
 Gateway password-variable aliases, strict sandbox/live mode checks and optional `/v1/payments` callbacks are supported. See [provider contract v0.5](docs/PROVIDER_CONTRACT_V05.md). All checkouts remain disabled by default; exposed credentials must be rotated.
+
+## v0.9 — Financial contract, IPN integrity and merchant signatures
+
+- Public `GET /v1/capabilities` describes only BDT hosted merchant checkout; no direct wallet, credit, FX, or remittance service is enabled.
+- Provider IPNs reject duplicate and malformed URL-form parameters before independent validation.
+- Migration `003` records provider-reported net separately from actual bank settlement, and is tested on disposable PostgreSQL.
+- Enabled production requires server-authenticated HMAC order details. See `docs/FINANCIAL_CONTRACT_V09.md`.
+- Render staging keeps all money movement disabled and targets the reviewed feature branch.
+- No leaked credentials or proprietary third-party source code are incorporated.

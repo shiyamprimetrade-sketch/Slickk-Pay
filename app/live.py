@@ -12,7 +12,7 @@ import hmac
 import json
 import os
 import re
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse
 from uuid import uuid4
 from typing import Callable
 
@@ -26,6 +26,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.exc import IntegrityError
 
 from .core import taka_to_poisha, display_amount, DomainError
+from .contracts import parse_provider_form, InvalidProviderForm, financial_capabilities, merchant_order_signature_valid
 
 
 class Base(DeclarativeBase):
@@ -87,6 +88,7 @@ class Checkout(Base):
     val_id: Mapped[str | None] = mapped_column(String(120), unique=True)
     bank_tran_id: Mapped[str | None] = mapped_column(String(120), unique=True)
     failure_code: Mapped[str | None] = mapped_column(String(60))
+    gateway_reported_net_poisha: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class IPNSecurityEvent(Base):
@@ -122,6 +124,8 @@ class Config:
     gateway_live: bool = False
     regulatory_confirmation: bool = False
     api_key: str = ""
+    require_signed_orders: bool = False
+    order_signing_secret: str = ""
     gateway_store_id: str = ""
     gateway_store_password: str = ""
     public_base_url: str = "http://localhost:8000"
@@ -136,6 +140,8 @@ class Config:
             gateway_live=_read_live_flag(),
             regulatory_confirmation=os.getenv("SLICKK_REGULATORY_SIGNOFF", "false").lower() == "true",
             api_key=os.getenv("SLICKK_MERCHANT_API_KEY", ""),
+            require_signed_orders=os.getenv("SLICKK_REQUIRE_SIGNED_ORDERS", "false").lower() == "true",
+            order_signing_secret=os.getenv("SLICKK_ORDER_SIGNING_SECRET", ""),
             gateway_store_id=os.getenv("SSLCOMMERZ_STORE_ID", ""),
             gateway_store_password=_read_gateway_password(),
             public_base_url=os.getenv("SLICKK_PUBLIC_BASE_URL", "http://localhost:8000"),
@@ -162,6 +168,9 @@ class Config:
                 raise ValueError("Production checkouts require persistent PostgreSQL")
         if self.enabled and (len(self.api_key) < 32 or "REPLACE" in self.api_key.upper() or not self.gateway_store_id or not self.gateway_store_password or "REPLACE" in self.gateway_store_id.upper() or "REPLACE" in self.gateway_store_password.upper()):
             raise ValueError("Enabled checkouts require merchant API key (32+ characters) and gateway credentials")
+        if self.enabled and (self.require_signed_orders or self.environment == "production"):
+            if len(self.order_signing_secret) < 32 or "REPLACE" in self.order_signing_secret.upper():
+                raise ValueError("Signed orders require a separate 32+ character private signing secret")
         if self.enabled and (len(self.gateway_store_id) > 30 or len(self.gateway_store_password) > 30):
             raise ValueError("SSLCOMMERZ store credentials exceed provider field limit")
         if self.environment == "production" and self.enabled and parsed.scheme != "https":
@@ -247,7 +256,9 @@ def _gateway_url_valid(url: str, host: str) -> bool:
 def _view(row: Checkout) -> dict:
     return {"transaction_id": row.id, "order_ref": row.order_ref, "amount_bdt": display_amount(row.amount_poisha),
             "currency": "BDT", "status": row.state, "gateway_url": row.gateway_url,
-            "provider": "SSLCOMMERZ"}
+            "provider": "SSLCOMMERZ",
+            "provider_reported_net_bdt": (display_amount(row.gateway_reported_net_poisha)
+                                          if row.gateway_reported_net_poisha is not None else None)}
 
 
 def _client_factory() -> httpx.Client:
@@ -261,7 +272,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
     engine = create_engine(_database_url(cfg.database_url), pool_pre_ping=True)
     Base.metadata.create_all(engine)
     Session = sessionmaker(engine, expire_on_commit=False)
-    api = FastAPI(title="Slickk Pay Hosted Checkout", version="0.8.0", docs_url=None, redoc_url=None,
+    api = FastAPI(title="Slickk Pay Hosted Checkout", version="0.9.0", docs_url=None, redoc_url=None,
                   description="Merchant checkout through licensed gateway; no wallet, remittance or loan issuance")
 
     @api.middleware("http")
@@ -284,7 +295,7 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
 
     @api.get("/")
     def root():
-        return {"service": "Slickk Pay Checkout", "version": "0.8.0", "wallets": "disabled", "loans": "disabled",
+        return {"service": "Slickk Pay Checkout", "version": "0.9.0", "wallets": "disabled", "loans": "disabled",
                 "enabled": cfg.enabled, "gateway": "live" if cfg.gateway_live else "sandbox"}
 
     @api.get("/healthz")
@@ -300,11 +311,21 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
         return {"ready": True, "gateway": "live" if cfg.gateway_live else "sandbox"}
 
     @api.post("/v1/checkouts", status_code=201)
-    def initiate_checkout(body: CheckoutCreate, x_slickk_api_key: str | None = Header(default=None)):
+    def initiate_checkout(body: CheckoutCreate,
+                          x_slickk_api_key: str | None = Header(default=None),
+                          x_slickk_order_timestamp: str | None = Header(default=None),
+                          x_slickk_order_signature: str | None = Header(default=None)):
         authorized(x_slickk_api_key)
         if not _merchant_product_allowed(body):
             raise HTTPException(status_code=422, detail="Regulated wallet, credit and remittance products are not enabled for merchant checkout")
         minor = _amount(body.amount_bdt)
+        if cfg.require_signed_orders or cfg.environment == "production":
+            if not merchant_order_signature_valid(
+                    cfg.order_signing_secret, timestamp=x_slickk_order_timestamp,
+                    signature=x_slickk_order_signature, order_ref=body.order_ref,
+                    amount_poisha=minor, product_name=body.product_name,
+                    product_category=body.product_category):
+                raise HTTPException(status_code=401, detail="Valid signed merchant order required")
         fingerprint = _canonical_fingerprint(body, minor)
         tran_id = "SP" + uuid4().hex[:26]  # <= 30 characters, per provider contract
         # Persist BEFORE invoking provider. One external order_ref maps to ONE transaction.
@@ -367,6 +388,10 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
                 raise HTTPException(status_code=404, detail="Order not found")
             return {**_view(row), "gateway_environment": "live" if cfg.gateway_live else "sandbox"}
 
+    @api.get("/v1/capabilities")
+    def capabilities():
+        return financial_capabilities(configured=cfg.enabled, environment=cfg.environment)
+
     @api.post("/v1/payments/ipn")
     @api.post("/v1/gateway/ipn")
     async def receive_ipn(request: Request):
@@ -378,9 +403,9 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
         if len(raw) > 16_384:
             raise HTTPException(status_code=413, detail="IPN too large")
         try:
-            fields = {k: v[0] for k, v in parse_qs(raw.decode("utf-8"), keep_blank_values=True).items()}
-        except UnicodeDecodeError:
-            raise HTTPException(status_code=400, detail="Malformed IPN")
+            fields = parse_provider_form(raw)
+        except InvalidProviderForm:
+            raise HTTPException(status_code=400, detail="Invalid IPN form")
         tran_id = fields.get("tran_id", "")
         val_id = fields.get("val_id", "")
         # Callback body is untrusted: failure/cancellation cannot be asserted by a
@@ -457,6 +482,8 @@ def create_app(settings: Config | None = None, *, client_factory: Callable[[], h
                 row.state = "risk_review" if risky else "paid"
                 row.val_id = val_id
                 row.bank_tran_id = bank_tran_id
+                if verified.get("store_amount") is not None:
+                    row.gateway_reported_net_poisha = taka_to_poisha(str(verified["store_amount"]))
                 row.gateway_url = None
                 return {"accepted": True, "verified": True, "status": row.state}
         except IntegrityError:

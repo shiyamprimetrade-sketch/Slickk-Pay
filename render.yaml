@@ -5,7 +5,7 @@ services:
     name: slickk-pay-staging
     runtime: docker
     plan: free
-    branch: main
+    branch: feat/hosted-checkout-v0.2
     autoDeployTrigger: "off"
     healthCheckPath: /healthz
     envVars:
