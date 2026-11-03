@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Slickk Pay LAB",
+    "slug": "slickk-pay-lab",
+    "scheme": "slickkpaylab",
+    "version": "0.3.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {"package":"online.slickk.pay.lab", "versionCode":3, "permissions":[]},
+    "ios": {"bundleIdentifier":"online.slickk.pay.lab"},
+    "extra":{"simulation":true,"financialTransactionsEnabled":false}
+  }
+}
