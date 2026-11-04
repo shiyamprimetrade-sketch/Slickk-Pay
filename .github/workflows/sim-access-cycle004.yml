@@ -1,0 +1,45 @@
+name: Cycle 004 synthetic customer and agent access conformance
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  simulated-access-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SLICKK_ENV: sandbox
+      SLICKK_ENABLE_CHECKOUTS: 'false'
+      SLICKK_GATEWAY_LIVE: 'false'
+      SLICKK_REGULATORY_SIGNOFF: 'false'
+      SLICKK_SIM_ACCESS_ENABLED: 'true'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing application dependencies only
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Check isolated access package syntax
+        run: python -m compileall -q app/simaccess
+      - name: Run synthetic authorization and rollback tests
+        run: python -m unittest discover -s tests -p 'test_simaccess_*cycle004.py' -v
+      - name: Verify fresh isolated lab without external credentials
+        run: python -m scripts.verify_cycle004_lab
+      - name: Scan source for missing production isolation boundaries
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from app.simaccess.versioning import ContractVersionRegistry
+          import ast
+          source=Path('app/live.py').read_text(encoding='utf-8')
+          assert 'simaccess' not in source, 'Never mount synthetic auth with live checkout'
+          for file in Path('app/simaccess').glob('*.py'):
+              ast.parse(file.read_text(encoding='utf-8'))
+          assert Path('app/simaccess/schema.py').is_file()
+          print('PASS: simulation not imported into live checkout; module AST valid')
+          PY

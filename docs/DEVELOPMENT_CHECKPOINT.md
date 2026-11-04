@@ -166,3 +166,61 @@ No change to existing hosted merchant checkout PostgreSQL migrations 001–003. 
 - Previously exposed gateway/hosting/database secrets must be rotated through private provider consoles; never commit secrets.
 - Public financial activity, deposit taking, agent cash handover and lending remain disabled without licensed/regulated operating arrangements and independent security reviews.
 - **Cycle 004 priority:** authenticated and authorized *sandbox-only* customer/agent server contract, build/install/test Android app on real device or emulator, verify Bangla accessibility and secure storage properties; preserve ledger/posting isolation and strengthen process-crash fault injection and privacy review.
+
+
+---
+
+## Cycle 004 — November 4, 2026
+
+- **Status:** IMPLEMENTATION COMPLETE, synthetic-money only; GitHub hosted verification passed. **Not deployed**.
+- **Repository:** https://github.com/shiyamprimetrade-sketch/Slickk-Pay
+- **Starting verified Cycle 003 commit:** `bf1c98c9d1a5b97d9d003400e6bf98f66f5adbb6`.
+- **Implementation commit:** `707ebec14bb4fa382426d29113f99c33f3d498e8`.
+- **Branch:** `feature/slickk-pay-cycle-004`.
+- **Draft pull request:** https://github.com/shiyamprimetrade-sketch/Slickk-Pay/pull/6 — stacked on `feature/slickk-pay-cycle-003`. `main` is unchanged.
+- **GitHub diff:** https://github.com/shiyamprimetrade-sketch/Slickk-Pay/compare/bf1c98c9d1a5b97d9d003400e6bf98f66f5adbb6...707ebec14bb4fa382426d29113f99c33f3d498e8
+- **New executable production source:** **4,259 Python physical lines**, in 39 `app/simaccess/*.py` modules. **3,692 nonblank, non-line-comment lines**. No earlier production source removed.
+- **New test source:** **613 lines** across three `tests/test_simaccess_*cycle004.py` test files; package initializer counted separately.
+- **Total Git diff:** 46 files, 5,081 additions, 0 deletions (including documentation, scripts, test source and CI).
+- **New database artifacts:** local SQLite fictional-access tables established only at explicit sandbox lab startup, deliberately separate from the existing PostgreSQL ledger and merchant checkout. No existing PostgreSQL migration changed.
+
+### Features implemented
+
+1. Original, opt-in **synthetic identity and session** service with demo PIN hashing, temporary opaque device-bound sessions, role/ownership restrictions, login-attempt throttling, synthetic IDs and isolated local SQLite records.
+2. Server-generated, exact-poisha pilot fee quotes with expiring references, idempotency and explicit disclosures, review/cancellation workflows and nonpayable receipt previews. Fees remain **unapproved experimental pricing**.
+3. Sandbox agent/customer cash checklists and distinct two-party *review acknowledgements*. Even complete acknowledgements **cannot** authorize physical handover, move funds, post journal entries or mark bank settlement complete.
+4. Scoped sample QR references, replay checks, privacy-redacted support drafts, notification outbox previews, limited synthetic directory and activity reads.
+5. Hash-linked audit evidence, database integrity and rollback checks, fault injection and deterministic recovery probe; explicit fail-closed local-only API middleware and prohibition on use during live-payment mode.
+
+### Verification
+
+- Local `python -m unittest discover -s tests -p '*cycle004.py' -q`: **80 passed**.
+- Local `python -m compileall -q app/simaccess scripts/verify_cycle004_lab.py`: passed.
+- Local `PYTHONPATH=. python scripts/verify_cycle004_lab.py`: successful output (14 conformance checks, valid hash audit evidence, confirmed rollback and financial posting denied).
+- Hosted [Cycle 004 synthetic access CI](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41851520769) — success.
+- Hosted [Python application regression CI](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41851520609) — success.
+- Hosted [disposable merchant PostgreSQL CI](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41851520568) — success.
+- Hosted [Cycle 002 PostgreSQL and TypeScript contract CI](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41851520560) — success.
+- Hosted [Cycle 003 Android Hermes mobile CI](https://github.com/shiyamprimetrade-sketch/Slickk-Pay/actions/runs/41851520631) — success.
+- Hosted runner uses `python -m scripts.verify_cycle004_lab` for import-safe lab execution.
+- No native Android APK was built or installed, and no actual customer onboarding, licensed payment, agent cash transfer, real bank settlement or loan took place.
+
+### Technology decisions
+
+- **Added:** Python/FastAPI isolated sandbox-access modules, typed Pydantic contracts, standard-library SQLite, test fixture storage, GitHub Actions YAML.
+- **Preserved:** existing Python SSLCOMMERZ checkout, PostgreSQL sandbox double-entry ledger, React Native/TypeScript mobile simulator, documentation and prior PRs.
+- **Deferred:** Go service split, NestJS migration and live mobile authentication until tested contracts and legitimate legal/provider arrangements exist. No unneeded framework migration performed.
+
+### Security limitations and remaining blockers
+
+- Synthetic demo PIN/session verification is NOT production KYC, MFA, secure Android Keystore binding or an independently certified authentication system.
+- Localhost-only access is an experiment boundary, not a production authorization control; do not deploy this API as a public customer interface.
+- Previously exposed provider/hosting/database credentials still require private rotation before any approved staging integration.
+- No real-money license, SSLCOMMERZ settlement connection, bank network access, field-tested Android device or externally audited financial system was verified.
+
+### Recommended Cycle 005
+
+1. Independently audit sandbox access authorization, session/recovery behavior, concurrency and audit tamper resistance; add process-crash and restart fault injection and negative tests.
+2. Design a properly authenticated **sandbox-only** mobile-to-server contract without distributing operator keys or creating money-posting endpoints.
+3. Prototype secure Android credential handling and run device/emulator tests; keep all balance changes server-authoritative and fictional.
+4. Review stacked PRs #1, #3, #4, #5 and #6 and resolve security/reviewer feedback before any authorized integration; do not merge unreviewed financial code into production.
