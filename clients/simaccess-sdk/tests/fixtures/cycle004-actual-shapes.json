@@ -1,0 +1,124 @@
+{
+  "health": {
+    "simulation": true,
+    "money_movement": false,
+    "database": "isolated_sqlite_local_test_only",
+    "schema": 5,
+    "sqlite_integrity": true,
+    "foreign_key_violations": 0,
+    "audit_valid": true,
+    "posting_enabled": false,
+    "provider_network_connections": 0
+  },
+  "capabilities": {
+    "simulation": true,
+    "can_move_money": false,
+    "accepts_deposits": false,
+    "allows_cash_handover": false,
+    "cash_authorization": false,
+    "can_issue_loans": false,
+    "bank_connected": false,
+    "checkout_provider_connected": false,
+    "customer_auth_mode": "SYNTHETIC_FIXTURE_ONLY",
+    "api_revision": "lab-v4"
+  },
+  "me": {
+    "persona": {
+      "id": "sim_customer_alpha",
+      "role": "customer",
+      "label": "Sample customer",
+      "state": "active",
+      "revision": 1,
+      "simulation": true
+    },
+    "accounts": [
+      {
+        "account_id": "sim_account_customer_alpha",
+        "sample_balance_poisha": 100000,
+        "currency": "BDT",
+        "as_of": 1800000000,
+        "authoritative": false,
+        "simulation": true
+      }
+    ],
+    "capabilities": {
+      "simulation": true,
+      "can_move_money": false,
+      "accepts_deposits": false,
+      "allows_cash_handover": false,
+      "cash_authorization": false,
+      "can_issue_loans": false,
+      "bank_connected": false,
+      "checkout_provider_connected": false,
+      "customer_auth_mode": "SYNTHETIC_FIXTURE_ONLY",
+      "api_revision": "lab-v4"
+    },
+    "simulation": true,
+    "currency": "BDT",
+    "authoritative_balance": false
+  },
+  "agents": {
+    "items": [
+      {
+        "actor_id": "sim_agent_alpha",
+        "label": "Sample Agent Alpha",
+        "region": "dhaka_demo",
+        "sample_cash_poisha": 600000,
+        "sample_float_poisha": 1250000,
+        "accepts_real_cash": false,
+        "verified_business_location": false,
+        "registered_financial_agent": false,
+        "simulation": true
+      }
+    ],
+    "has_more": false,
+    "total_matching": 1,
+    "simulation": true,
+    "current_open_hours_unverified": true,
+    "real_location_verified": false
+  },
+  "activity": {
+    "rows": [],
+    "next_cursor": null,
+    "simulation": true,
+    "real_transaction_count": 0
+  },
+  "quote": {
+    "quote_id": "sim_quote_b366537b4af13fa7665744c87cd8d9",
+    "owner_id": "sim_customer_alpha",
+    "operation": "transfer",
+    "counterpart_id": "sim_customer_beta",
+    "principal_poisha": 10000,
+    "fee_poisha": 0,
+    "total_poisha": 10000,
+    "version": "sim_pricing_2026_01",
+    "status": "quoted",
+    "expires_at": 1800000180,
+    "simulation": true,
+    "can_execute": false,
+    "real_money": false,
+    "tax_unverified": true
+  },
+  "review": {
+    "request_id": "sim_request_acbf8f8e4a7d65a01c64c03db0299b",
+    "owner_id": "sim_customer_alpha",
+    "quote_id": "sim_quote_b366537b4af13fa7665744c87cd8d9",
+    "operation": "transfer",
+    "status": "reviewed",
+    "revision": 1,
+    "accepted_at": 1800000000,
+    "updated_at": 1800000000,
+    "simulation": true,
+    "financial_posting": false,
+    "handover_authorized": false
+  },
+  "support": {
+    "case_id": "sim_support_2e630da627a2ad2d6c9c6cefa36b50",
+    "category": "privacy",
+    "description": "Sample privacy question only",
+    "status": "draft",
+    "created_at": 1800000000,
+    "simulation": true,
+    "submitted_to_provider": false
+  }
+}

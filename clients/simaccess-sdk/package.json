@@ -1,0 +1,14 @@
+{
+  "name": "@slickk-pay/simaccess-sdk",
+  "private": true,
+  "version": "0.5.0",
+  "type": "module",
+  "description": "Read-only, local-only fictional customer and agent API contract; no money posting",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs"
+  },
+  "devDependencies": { "typescript": "5.8.3" },
+  "engines": {"node": ">=22"}
+}
